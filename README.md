@@ -9,6 +9,9 @@ Entirely open source, this tool is based on a Python backend (Flask + Tkinter) a
 <br>
 <br>
 WB-Streamer Manager runs as a portable installation via a dedicated launcher script. Running instances remain completely autonomous: closing the Manager will not interrupt ongoing audio broadcasts.
+
+<img width="1080" alt="wb-streamer-manager-preview" src="https://github.com/user-attachments/assets/4adbb3c3-953f-4102-a980-064fb06e5a8f" />
+
 - - -
 <b>⚠️ For now, WB-Streamer Manager is designed and tested primarily for Windows (10 and 11).</b>
 <br>
