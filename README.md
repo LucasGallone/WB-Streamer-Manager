@@ -134,4 +134,4 @@ Transitive dependencies installed alongside Flask (such as Jinja2, Click, ItsDan
 WB-Streamer Manager does not bundle `socket.io.js` directly in this repository; when monitoring active WestBroadcast Streamer instances, the web dashboard dynamically loads the Socket.IO client library from the running instance's `/static/` endpoint.
 <br>
 <br>
-• **Socket.IO Client**: MIT License (Copyright (c) 2014-2025 Automattic).
+• **Socket.IO Client**: MIT License (Copyright (c) 2014-2026 Automattic).
