@@ -1,0 +1,1326 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}">
+<head>
+    <meta charset="UTF-8">
+    <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    <title>WB-Streamer Manager{% if cfg.instance_name %} - {{ cfg.instance_name }}{% endif %}</title>
+    <style>
+        :root { --bg: #eef2f5; --panel: #dae6f0; --blue: #3c8dbc; --danger: #d9534f; --success: #5cb85c; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; margin: 0; background-color: var(--bg); color: #333; }
+        .header { background: linear-gradient(to bottom, #4a9fd6 0%, #3c8dbc 100%); color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #fff; position: relative; min-height: 44px; }
+        .header-title-col { display: flex; flex-direction: column; justify-content: center; align-items: flex-start; line-height: 1.2; }
+        .head-btns { display: flex; gap: 10px; align-items: center; }
+        .logout-btn { color: white; text-decoration: none; font-weight: bold; background: rgba(0,0,0,0.2); padding: 6px 12px; border-radius: 4px; border: none; cursor: pointer; font-size: 0.9rem;}
+        .logout-btn:hover { background: rgba(0,0,0,0.4); }
+
+        /* STYLE MENU */
+        .menu-btn { cursor: pointer; font-size: 1.5rem; color: white; background: none; border: none; line-height: 1; padding: 2px 6px; }
+        .menu-overlay { 
+            display: none; position: absolute; top: 100%; right: 6px; margin-top: 16px;
+            background: #f9f9f9; box-shadow: 0 4px 8px rgba(0,0,0,0.2); 
+            border: 1px solid #ccc; z-index: 2000; min-width: 210px;
+        }
+        .menu-overlay a, .menu-overlay button {
+            display: block; width: 100%; padding: 12px 20px; text-align: left;
+            background: none; border: none; border-bottom: 1px solid #eee;
+            color: #333; font-size: 0.95rem; cursor: pointer; text-decoration: none;
+            box-sizing: border-box; font-family: inherit;
+        }
+        .menu-overlay button:hover, .menu-overlay a:hover { background: #e0e0e0; }
+        .container { max-width: 1300px; margin: 30px auto; padding: 0 20px; }
+        
+        .modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.8); z-index: 9999; justify-content: center; align-items: center; }
+        .modal-box { background: white; padding: 30px; border-radius: 8px; width: 450px; box-shadow: 0 0 20px rgba(0,0,0,0.5); text-align: center; }
+        .modal-box h2 { margin-top: 0; color: var(--blue); font-size: 1.4rem; margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px;}
+        .modal-box input, .modal-box select { display: block; width: 100%; margin: 10px 0; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        .modal-btn { width: 100%; padding: 12px; margin-top: 10px; cursor: pointer; color: white; border: none; border-radius: 4px; font-weight: bold; font-size: 1rem; }
+        .btn-blue { background: var(--blue); } .btn-grey { background: #777; } .btn-danger { background: var(--danger); } .btn-success { background: var(--success); }
+        .modal-section { border-top: 1px solid #eee; margin-top: 20px; padding-top: 20px; text-align: left; }
+        .modal-section h3 { font-size: 1rem; margin-top: 0; margin-bottom: 10px; color: #555; }
+        
+        .form-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; text-align: left; font-size: 0.9rem; font-weight: bold; color: #555;}
+        .form-row input, .form-row select { width: 65%; margin: 0; }
+
+        .card { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); border: 1px solid #bdc9d6; }
+        .toolbar { display: flex; justify-content: space-between; margin-bottom: 20px; align-items: center;}
+        .btn-add { background: var(--blue); color: white; border: none; padding: 10px 20px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 1rem; }
+        
+        table { width: 100%; border-collapse: collapse; text-align: left; }
+        th, td { padding: 12px; border-bottom: 1px solid #eee; vertical-align: middle; }
+        th { background: #f2f2f2; color: #555; }
+        
+        /* Strict normalization for perfect horizontal alignment */
+        .badge { 
+            display: inline-block; 
+            padding: 4px 10px; 
+            border-radius: 4px; 
+            font-size: 0.85rem; 
+            font-weight: bold; 
+            color: white; 
+            line-height: 1.2; 
+            text-align: center; 
+            vertical-align: middle; 
+            box-sizing: border-box; 
+        }
+        .badge.on { background: var(--success); }
+        .badge.off { background: #999; }
+        .badge.backup { background: var(--danger); }
+        
+        .action-btn { padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; color: white; font-size: 0.85rem; text-decoration: none; display: inline-block; margin-right: 5px; }
+        .btn-start { background: var(--success); } .btn-stop { background: var(--danger); }
+        .btn-open { background: var(--blue); } .btn-del { background: #555; }
+        .inst-menu-wrap { position: relative; display: inline-block; }
+        .btn-inst-settings { background: #64748b; margin-right: 0; }
+        .btn-inst-settings:hover { background: #475569; }
+        .inst-dropdown {
+            display: none; position: absolute; right: 0; top: 100%; margin-top: 4px;
+            background: #fff; min-width: 145px; box-shadow: 0 4px 12px rgba(0,0,0,0.18);
+            border: 1px solid #cbd5e1; border-radius: 4px; z-index: 1500; overflow: hidden;
+        }
+        .inst-dropdown button {
+            display: block; width: 100%; padding: 9px 14px; text-align: left;
+            background: none; border: none; border-bottom: 1px solid #f1f5f9;
+            font-size: 0.85rem; font-weight: 600; cursor: pointer; font-family: inherit; color: #333;
+        }
+        .inst-dropdown button:last-child { border-bottom: none; }
+        .inst-dropdown button:hover { background: #f1f5f9; }
+        .inst-dropdown button.inst-opt-del { color: var(--danger); }
+        .inst-dropdown button.inst-opt-del:hover { background: #fef2f2; }
+
+        /* VU-meter structure identical to the instances */
+        .detail-row td { background: transparent; padding: 0 12px 6px 12px; border-bottom: none; }
+        .sub-panel { display: flex; gap: 15px; flex-wrap: wrap; background: #fff; padding: 12px 15px; border-radius: 6px; border: 1px solid #cbd5e1; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .sub-col { flex: 1; min-width: 190px; }
+        .sub-title { font-size: 0.75rem; text-transform: uppercase; font-weight: bold; color: var(--blue); margin-bottom: 6px; border-bottom: 1px solid #e2e8f0; padding-bottom: 3px; letter-spacing: 0.5px; }
+
+        .vu-h-line { display: flex; align-items: center; gap: 6px; margin-top: 3px; }
+        .vu-h-lbl { width: 12px; font-size: 0.75rem; font-weight: bold; color: #444; text-align: center; }
+        
+        .vu-h-bar-area { 
+            flex: 1; 
+            height: 11px; 
+            position: relative; 
+            background-color: #00b300; 
+            background-image: linear-gradient(to right, 
+                #00b300 0%, 
+                #00b300 72.5%,   
+                #ffcc00 72.6%,   
+                #ff6600 80%,     
+                #ff0000 90%,     
+                #ff0000 100%
+            ); 
+            background-repeat: no-repeat; 
+            background-size: 100% 100%; 
+            border: 1px solid #555; 
+            border-radius: 2px; 
+            overflow: hidden; 
+        }
+        .vu-h-mask { position: absolute; top: 0; right: 0; height: 100%; width: 100%; background-color: #1a1a1a; opacity: 0.95; border-left: 1px solid #000; transition: width 0.1s linear; z-index: 1; }
+        .vu-h-readout { font-family: 'Consolas', monospace; font-size: 0.75rem; color: #333; font-weight: bold; width: 58px; text-align: right; white-space: nowrap; }
+
+        /* Autostart Switch (Toggle Switch) */
+        .switch { position: relative; display: inline-block; width: 36px; height: 20px; vertical-align: middle; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .3s; border-radius: 20px; }
+        .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; box-shadow: 0 1px 2px rgba(0,0,0,0.3); }
+        .switch input:checked + .slider { background-color: var(--success); }
+        .switch input:checked + .slider:before { transform: translateX(16px); }
+
+        /* Log Styles */
+        .btn-sec { background: #fff; border: 1px solid #ccc; color: #333; padding: 5px 12px; cursor: pointer; border-radius: 4px; font-size: 0.85rem; text-decoration: none; display: inline-block; }
+        .btn-sec:hover { background: #eee; }
+        .logs-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; text-align: left; }
+        .logs-table th, .logs-table td { padding: 8px; border-bottom: 1px solid #eee; }
+        .logs-table th { background: #f2f2f2; color: #333; }
+        .log-error { color: #d9534f; font-weight: bold; }
+        .log-warning { color: #e67e22; font-weight: bold; }
+        .log-info { color: #17a2b8; font-weight: bold; }
+        .log-recovery { color: #28a745; font-weight: bold; }
+        .log-system { color: #6f42c1; font-weight: bold; }
+        .log-auth { color: #d4ac0d; font-weight: bold; }
+        .filter-bar { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
+        .filter-bar select { padding: 5px; width: auto; margin: 0; }
+        .pagination-controls { margin-left: auto; display: flex; gap: 5px; align-items: center; }
+        .page-btn { padding: 5px 10px; cursor: pointer; border: 1px solid #ccc; background: #fff; font-size: 0.85rem; }
+        .page-btn:disabled { opacity: 0.5; cursor: default; }
+    </style>
+</head>
+<body>
+
+{% if login_needed %}
+<div class="modal" style="display:flex;">
+    <div class="modal-box">
+        <h2>{{ 'Veuillez vous connecter pour continuer' if lang == 'fr' else 'Please log in to continue' }}</h2>
+        {% if cfg.instance_name %}
+        <div style="color: #666; font-size: 0.95rem; margin-top: -12px; margin-bottom: 18px; font-weight: 500;">{{ cfg.instance_name }}</div>
+        {% endif %}
+        {% if login_error %}
+        <div style="color: red; margin-bottom: 15px; font-weight: bold;">{{ 'Accès refusé : Identifiants incorrects.' if lang == 'fr' else 'Access denied: Invalid credentials.' }}</div>
+        {% endif %}
+        {% if login_lockout %}
+        <div style="color: red; margin-bottom: 15px; font-weight: bold;">{{ 'Trop de tentatives échouées. Veuillez patienter 90 secondes.' if lang == 'fr' else 'Too many failed attempts. Please wait 90 seconds.' }}</div>
+        {% endif %}
+        <form action="/login" method="POST">
+            <input type="text" name="username" placeholder="{{ 'Nom d\'utilisateur' if lang == 'fr' else 'Username' }}" required>
+            <input type="password" name="password" placeholder="{{ 'Mot de passe' if lang == 'fr' else 'Password' }}" required>
+            <button type="submit" class="modal-btn btn-blue">{{ 'Se connecter' if lang == 'fr' else 'Login' }}</button>
+        </form>
+    </div>
+</div>
+{% else %}
+
+<div class="header">
+    <div class="header-title-col">
+        <div style="font-weight:bold; font-size:1.4rem;">WB-Streamer Manager</div>
+        {% if cfg.instance_name %}
+        <div style="font-size:0.9rem; opacity:0.9; margin-top:2px;">{{ cfg.instance_name }}</div>
+        {% endif %}
+    </div>
+    <div class="head-btns">
+        <span id="mgr-uptime" style="font-weight:bold; margin-right: 10px;">{{ 'Durée de fonctionnement : ...' if lang == 'fr' else 'Uptime: ...' }}</span>
+        <div style="position:relative;">
+            <button class="menu-btn" onclick="document.getElementById('menu-dropdown').style.display = document.getElementById('menu-dropdown').style.display === 'block' ? 'none' : 'block'">&#9776;</button>
+            <div id="menu-dropdown" class="menu-overlay">
+                <button onclick="document.getElementById('settings-modal').style.display='flex'; document.getElementById('menu-dropdown').style.display='none'">{{ 'Paramètres' if lang == 'fr' else 'Settings' }}</button>
+                <button onclick="openLogs(); document.getElementById('menu-dropdown').style.display='none'">{{ "Journaux d'événements" if lang == 'fr' else 'Logs' }}</button>
+                <button onclick="document.getElementById('sys-modal').style.display='flex'; document.getElementById('menu-dropdown').style.display='none'">{{ 'Redémarrer / Restaurer' if lang == 'fr' else 'Restart / Restore' }}</button>
+                <a href="/logout" onclick="disconnectAllSockets();" style="display: flex; align-items: center;">
+                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                    {{ 'Déconnexion' if lang == 'fr' else 'Logout' }}
+                </a>
+                <div style="border-top: 1px solid #eee; padding: 6px 15px; text-align: right; font-size: 0.75rem; color: #888; user-select: none;">Version 1.0 (15/11/2026)</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+    <div id="backup-banner" style="display:none; background-color: var(--danger); color: white; padding: 12px 18px; margin-bottom: 20px; border-radius: 6px; text-align: center; font-weight: bold; box-shadow: 0 2px 6px rgba(0,0,0,0.2); letter-spacing: 0.3px;"></div>
+    <div class="card">
+        <div class="toolbar">
+            <h2 style="margin: 0; color: #333; font-size: 1.2rem;">{{ 'Instances configurées' if lang == 'fr' else 'Configured instances' }}</h2>
+            <div style="display:flex; gap:10px;">
+                <button class="action-btn btn-start" onclick="startAllInstances()" style="margin:0; padding:10px 15px;">{{ 'Tout démarrer' if lang == 'fr' else 'Start All' }}</button>
+                <button class="action-btn btn-stop" onclick="stopAllInstances()" style="margin:0; padding:10px 15px;">{{ 'Tout arrêter' if lang == 'fr' else 'Stop All' }}</button>
+                <button class="btn-add" onclick="document.getElementById('add-modal').style.display='flex'" style="margin-left:10px;">{{ '+ Ajouter une instance' if lang == 'fr' else '+ Add Instance' }}</button>
+            </div>
+        </div>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>{{ 'Nom' if lang == 'fr' else 'Name' }}</th>
+                    <th>{{ 'État' if lang == 'fr' else 'Status' }}</th>
+                    <th>{{ 'Diffusion' if lang == 'fr' else 'Broadcast' }}</th>
+                    <th>{{ 'IP / Port' if lang == 'fr' else 'IP / Port' }}</th>
+                    <th style="text-align: center;">{{ 'Démarrage auto' if lang == 'fr' else 'Autostart' }}</th>
+                    <th style="text-align: right;">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="instances-table">
+                <tr><td colspan="6" style="text-align: center;">{{ 'Chargement...' if lang == 'fr' else 'Loading...' }}</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Add Instance Modal -->
+<div id="add-modal" class="modal">
+    <div class="modal-box" style="width: 540px; max-width: 95%;">
+        <h2>{{ 'Ajout d\'une nouvelle instance' if lang == 'fr' else 'Add a new instance' }}</h2>
+        <div style="background: #f0f7fc; border: 1px solid #dae6f0; border-radius: 4px; padding: 8px 12px; font-size: 0.85rem; color: #3c8dbc; text-align: left; margin-bottom: 15px; line-height: 1.4;">
+            {% if lang == 'fr' %}
+            Le dossier cible doit contenir les fichiers originaux de WestBroadcast Streamer.<br>
+            <b>Le Manager ne peut contrôler que des instances présentes sur la machine hôte.</b>
+            {% else %}
+            The target folder must contain original WestBroadcast Streamer files.<br>
+            <b>The manager can only control instances present on the host machine.</b> 
+            {% endif %}
+        </div>
+        <form id="add-form" onsubmit="addInstance(event)">
+            <div style="background: #f9f9f9; padding: 15px; border-radius: 5px; margin-bottom: 15px; text-align: left; border: 1px solid #ddd;">
+                <h3 style="margin-top:0; font-size:1rem; color:var(--blue); border-bottom:1px solid #ddd; padding-bottom:5px;">{{ 'Emplacement du dossier cible & Identification' if lang == 'fr' else 'Target Folder Location & Identification' }}</h3>
+                <label for="inst-path" style="display:block; font-size:0.85rem; font-weight:bold; color:#555; margin-bottom:4px;">{{ 'Chemin du dossier d\'instance :' if lang == 'fr' else 'Path to the instance folder:' }}</label>
+                <input type="text" id="inst-path" placeholder="{{ 'Exemple : C:\\Users\\Radio\\WestBroadcast-Streamer' if lang == 'fr' else 'e.g. C:\\Users\\Radio\\WestBroadcast-Streamer' }}" style="margin: 0 0 12px 0; padding: 9px 10px;" required>
+
+                <label for="inst-name" style="display:block; font-size:0.85rem; font-weight:bold; color:#555; margin-bottom:4px;">{{ "Nom à afficher pour cette instance :" if lang == 'fr' else 'Display name for this instance:' }}</label>
+                <div style="display:flex; gap:8px; align-items:stretch;">
+                    <input type="text" id="inst-name" placeholder="{{ 'Exemple : WestBroadcast FM' if lang == 'fr' else 'e.g. WestBroadcast FM' }}" style="flex:1; margin:0; padding: 9px 10px;" required>
+                    <button type="button" onclick="autoName()" class="btn-sec" style="padding: 0 14px; font-weight:bold; white-space:nowrap;" title="{{ 'Récupérer depuis le fichier de configuration de l\'instance' if lang == 'fr' else 'Fetch from the instance configuration file' }}">{{ 'Nommage automatique' if lang == 'fr' else 'Automatic naming' }}</button>
+                </div>
+            </div>
+
+            <div style="background: #f9f9f9; padding: 12px 15px; border-radius: 5px; margin-bottom: 20px; text-align: left; border: 1px solid #ddd;">
+                <div style="display:flex; align-items:center; gap:10px; font-size: 0.9rem; font-weight: bold; color: #555;">
+                    <input type="checkbox" id="inst-autostart" style="width:16px; height:16px; margin:0; cursor:pointer;">
+                    <label for="inst-autostart" style="cursor:pointer;">{{ 'Démarrer automatiquement au lancement du Manager' if lang == 'fr' else 'Start automatically when the Manager is launched' }}</label>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 10px;">
+                <button type="submit" class="modal-btn btn-blue" style="flex:2; margin-top:0;">{{ 'Ajouter l\'instance' if lang == 'fr' else 'Add Instance' }}</button>
+                <button type="button" class="modal-btn btn-grey" onclick="closeAddModal()" style="flex:1; margin-top:0;">{{ 'Annuler' if lang == 'fr' else 'Cancel' }}</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Edit Instance Modal -->
+<div id="edit-modal" class="modal">
+    <div class="modal-box" style="width: 540px; max-width: 95%;">
+        <h2>{{ "Modification de l'instance" if lang == 'fr' else 'Edit Instance' }}</h2>
+        <form id="edit-form" onsubmit="editInstance(event)">
+            <input type="hidden" id="edit-inst-id">
+            <div style="background: #f9f9f9; padding: 15px; border-radius: 5px; margin-bottom: 15px; text-align: left; border: 1px solid #ddd;">
+                <h3 style="margin-top:0; font-size:1rem; color:var(--blue); border-bottom:1px solid #ddd; padding-bottom:5px;">{{ 'Emplacement du dossier cible & Identification' if lang == 'fr' else 'Location & Identification' }}</h3>
+                <label for="edit-inst-path" style="display:block; font-size:0.85rem; font-weight:bold; color:#555; margin-bottom:4px;">{{ 'Chemin du dossier d\'instance :' if lang == 'fr' else 'Folder Path:' }}</label>
+                <input type="text" id="edit-inst-path" style="margin: 0 0 12px 0; padding: 9px 10px;" required>
+
+                <label for="edit-inst-name" style="display:block; font-size:0.85rem; font-weight:bold; color:#555; margin-bottom:4px;">{{ "Nom à afficher pour cette instance :" if lang == 'fr' else 'Display Name:' }}</label>
+                <div style="display:flex; gap:8px; align-items:stretch;">
+                    <input type="text" id="edit-inst-name" style="flex:1; margin:0; padding: 9px 10px;" required>
+                    <button type="button" onclick="autoNameEdit()" class="btn-sec" style="padding: 0 14px; font-weight:bold; white-space:nowrap;" title="{{ 'Récupérer depuis le fichier de configuration de l\'instance' if lang == 'fr' else 'Fetch from the instance configuration file' }}">{{ 'Nommage automatique' if lang == 'fr' else 'Automatic naming' }}</button>
+                </div>
+            </div>
+
+            <div style="background: #f9f9f9; padding: 12px 15px; border-radius: 5px; margin-bottom: 20px; text-align: left; border: 1px solid #ddd;">
+                <div style="display:flex; align-items:center; gap:10px; font-size: 0.9rem; font-weight: bold; color: #555;">
+                    <input type="checkbox" id="edit-inst-autostart" style="width:16px; height:16px; margin:0; cursor:pointer;">
+                    <label for="edit-inst-autostart" style="cursor:pointer;">{{ 'Démarrer automatiquement au lancement du Manager' if lang == 'fr' else 'Start automatically when the Manager is launched' }}</label>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 10px;">
+                <button type="submit" class="modal-btn btn-blue" style="flex:2; margin-top:0;">{{ 'Sauvegarder' if lang == 'fr' else 'Save Changes' }}</button>
+                <button type="button" class="modal-btn btn-grey" onclick="closeEditModal()" style="flex:1; margin-top:0;">{{ 'Annuler' if lang == 'fr' else 'Cancel' }}</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Settings Modal -->
+<div id="settings-modal" class="modal">
+    <div class="modal-box" style="width: 600px; max-width: 95%;">
+        <h2>{{ 'Paramètres du Manager' if lang == 'fr' else 'Manager Settings' }}</h2>
+        <form action="/api/manager/settings" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            
+            <div style="background: #f9f9f9; padding: 15px; border-radius: 5px; margin-bottom: 15px; text-align: left; border: 1px solid #ddd;">
+                <h3 style="margin-top:0; font-size:1rem; color:var(--blue); border-bottom:1px solid #ddd; padding-bottom:5px;">{{ 'Authentification' if lang == 'fr' else 'Authentication' }}</h3>
+                <div class="form-row"><label style="flex:0 0 150px;">{{ 'Utilisateur :' if lang == 'fr' else 'Username:' }}</label><input type="text" name="admin_user" value="{{ cfg.admin_user }}" required style="flex:1;"></div>
+                <div class="form-row" style="margin-bottom:0;">
+                    <label style="flex:0 0 150px;">{{ 'Mot de passe :' if lang == 'fr' else 'Password:' }}</label>
+                    <div style="position: relative; flex: 1; display: flex;">
+                        <input type="password" name="admin_pass" id="mgr_pass_input" required style="width: 100%; padding-right: 34px;">
+                        <span onclick="togglePassword('mgr_pass_input', this)" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #666; display: flex; align-items: center;">
+                            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <div style="background: #f9f9f9; padding: 15px; border-radius: 5px; margin-bottom: 15px; text-align: left; border: 1px solid #ddd;">
+                <h3 style="margin-top:0; font-size:1rem; color:var(--blue); border-bottom:1px solid #ddd; padding-bottom:5px;">{{ 'Système' if lang == 'fr' else 'System' }}</h3>
+                <div class="form-row">
+                    <label style="flex:0 0 150px;">{{ "Nom de l'instance (Optionnel) :" if lang == 'fr' else 'Instance Name (Optional):' }}</label>
+                    <input type="text" name="instance_name" value="{{ cfg.instance_name }}" style="flex:1;">
+                </div>
+                <div class="form-row">
+                    <label style="flex:0 0 150px;">{{ 'Port du serveur :' if lang == 'fr' else 'Server Port:' }}</label>
+                    <input type="number" min="1" max="65535" name="manager_port" value="{{ cfg.manager_port }}" required style="flex:1;">
+                </div>
+                <div class="form-row" style="margin-bottom:0;">
+                    <label style="flex:0 0 150px;">{{ 'Langue :' if lang == 'fr' else 'Language:' }}</label>
+                    <select name="language" style="flex:1;">
+                        <option value="en" {% if lang == 'en' %}selected{% endif %}>English</option>
+                        <option value="fr" {% if lang == 'fr' %}selected{% endif %}>Français</option>
+                    </select>
+                </div>
+                <div class="form-row" style="margin-top: 12px; margin-bottom: 0; justify-content: flex-start; gap: 10px;">
+                    <input type="checkbox" name="hide_instance_on_login" id="mgr-hide-inst" style="width: auto; margin: 0; cursor: pointer;" {% if cfg.hide_instance_on_login %}checked{% endif %}>
+                    <label for="mgr-hide-inst" style="width: auto; cursor: pointer;">{{ "Masquer le nom de l'instance sur la page de connexion" if lang == 'fr' else 'Hide instance name on Login page' }}</label>
+                </div>
+                <div class="form-row" style="margin-top: 8px; margin-bottom: 0; justify-content: flex-start; gap: 10px;">
+                    <input type="checkbox" name="monitor_cpu_ram" id="mgr-monitor-cpu" style="width: auto; margin: 0; cursor: pointer;" {% if cfg.monitor_cpu_ram %}checked{% endif %}>
+                    <label for="mgr-monitor-cpu" style="width: auto; cursor: pointer;">{{ 'Activer la surveillance CPU / RAM pour toutes les instances' if lang == 'fr' else 'Enable CPU / RAM monitoring for all instances' }}</label>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button type="submit" class="modal-btn btn-blue" style="flex:2; margin-top:0;">{{ 'Sauvegarder et appliquer' if lang == 'fr' else 'Save and apply' }}</button>
+                <button type="button" class="modal-btn btn-grey" onclick="document.getElementById('settings-modal').style.display='none'" style="flex:1; margin-top:0;">{{ 'Annuler' if lang == 'fr' else 'Cancel' }}</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Restart / Reset Modal -->
+<div id="sys-modal" class="modal">
+    <div class="modal-box" style="width: 450px;">
+        <h2>{{ 'Gestion du système' if lang == 'fr' else 'System Management' }}</h2>
+        <div style="display: flex; gap: 10px;">
+            <button type="button" onclick="restartManager()" class="modal-btn btn-blue" style="flex:1;">{{ 'Redémarrer' if lang == 'fr' else 'Restart' }}</button>
+            <button type="button" onclick="resetManager()" class="modal-btn btn-danger" style="flex:1;">{{ "Réinitialisation d'usine" if lang == 'fr' else 'Factory Reset' }}</button>
+        </div>
+        <div class="modal-section">
+            <h3>{{ 'Sauvegarde de la configuration' if lang == 'fr' else 'Configuration Backup' }}</h3>
+            <div style="display: flex; gap: 10px;"><a href="/sys_export" target="_blank" class="modal-btn btn-success" style="text-align:center; text-decoration:none; flex:1; line-height: 20px; box-sizing:border-box;">{{ 'Exporter la configuration' if lang == 'fr' else 'Export Configuration File' }}</a></div>
+        </div>
+        <div class="modal-section">
+            <h3>{{ 'Importer une configuration' if lang == 'fr' else 'Import Configuration' }}</h3>
+            <form action="/sys_import" method="POST" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <input type="file" name="config_file" accept=".json" required>
+                <button type="submit" class="modal-btn btn-blue">{{ 'Importer et redémarrer' if lang == 'fr' else 'Import Configuration File & Restart' }}</button>
+            </form>
+        </div>
+        <button type="button" class="modal-btn btn-grey" onclick="document.getElementById('sys-modal').style.display='none'" style="margin-top: 20px;">{{ 'Fermer' if lang == 'fr' else 'Close' }}</button>
+    </div>
+</div>
+
+<!-- Logs Modal -->
+<div id="logs-modal" class="modal">
+    <div class="modal-box" style="width: 750px; max-width: 95%;">
+        <h2>{{ 'Journaux Système & Authentification (Logs)' if lang == 'fr' else 'System and Authentication Logs' }}</h2>
+        <div class="filter-bar">
+            <select id="log-filter" onchange="currentLogPage=1; loadLogs()">
+                <option value="ALL">{{ 'Tous' if lang == 'fr' else 'All Events' }}</option>
+                <option value="INFO">Info</option>
+                <option value="WARNING">{{ 'Avertissements' if lang == 'fr' else 'Warnings' }}</option>
+                <option value="RECOVERY">{{ 'Rétablissement' if lang == 'fr' else 'Recovery' }}</option>
+                <option value="ERROR">{{ 'Erreurs' if lang == 'fr' else 'Errors' }}</option>
+                <option value="SYSTEM">{{ 'Système' if lang == 'fr' else 'System' }}</option>
+                <option value="AUTH">Auth</option>
+            </select>
+            <button type="button" onclick="loadLogs()" class="btn-sec">{{ 'Actualiser' if lang == 'fr' else 'Refresh' }}</button>
+            <a href="/logs_export" target="_blank" class="btn-sec">{{ 'Exporter vers un fichier texte' if lang == 'fr' else 'Export all events to text file' }}</a>
+            <button type="button" onclick="clearLogs()" class="btn-sec" style="color: white; background: var(--danger); border-color: var(--danger);">{{ 'Effacer' if lang == 'fr' else 'Clear' }}</button>
+            
+            <div class="pagination-controls">
+                <button type="button" class="page-btn" onclick="changeLogPage(-1)" id="prev-page-btn">&lt;</button>
+                <span id="log-page-info">Page 1</span>
+                <button type="button" class="page-btn" onclick="changeLogPage(1)" id="next-page-btn">&gt;</button>
+            </div>
+        </div>
+        <div style="height: 400px; overflow-y: auto; border: 1px solid #ccc;">
+            <table class="logs-table">
+                <thead>
+                    <tr>
+                        <th>{{ 'Horodatage' if lang == 'fr' else 'Timestamp' }}</th>
+                        <th>Type</th>
+                        <th>{{ 'Événement' if lang == 'fr' else 'Event' }}</th>
+                    </tr>
+                </thead>
+                <tbody id="logs-body"></tbody>
+            </table>
+        </div>
+        <button type="button" class="modal-btn btn-grey" onclick="document.getElementById('logs-modal').style.display='none'">{{ 'Fermer' if lang == 'fr' else 'Close' }}</button>
+    </div>
+</div>
+
+<script>
+    const lang = "{{ lang }}";
+    const LOCAL_IP = "{{ cfg.local_ip }}";
+    const CSRF_TOKEN = "{{ csrf_token }}";
+    const _origFetch = window.fetch;
+    window.fetch = function(url, opts = {}) {
+        if (opts.method && opts.method.toUpperCase() === 'POST') {
+            opts.headers = Object.assign({'X-CSRF-Token': CSRF_TOKEN}, opts.headers || {});
+        }
+        return _origFetch(url, opts);
+    };
+
+    function escapeHtml(str) {
+        if (str === null || str === undefined) return '';
+        return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    function togglePassword(inputId, iconElem) {
+        let input = document.getElementById(inputId);
+        const eyeOpen = '<svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
+        const eyeClosed = '<svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>';
+
+        if (input.type === "password") {
+            input.type = "text";
+            iconElem.innerHTML = eyeOpen;
+        } else {
+            input.type = "password";
+            iconElem.innerHTML = eyeClosed;
+        }
+    }
+
+    function loadManagerPassword() {
+        fetch('/api/manager/config').then(r => r.ok ? r.json() : null).then(d => {
+            if (d && d.admin_pass !== undefined) {
+                const passEl = document.getElementById('mgr_pass_input');
+                if (passEl) passEl.value = d.admin_pass;
+            }
+        });
+    }
+
+    let sockets = {};
+    let ioLoaded = false;
+    let currentRenderedSig = "";
+    let backupInstances = {};
+    let instanceNamesMap = {};
+    let instancesCache = {};
+    var currentLogPage = 1;
+
+    function updateBackupBanner() {
+        const banner = document.getElementById('backup-banner');
+        if (!banner) return;
+        const ids = Object.keys(backupInstances).filter(id => id in instanceNamesMap);
+        if (ids.length === 0) {
+            if (banner.style.display !== 'none') {
+                banner.style.display = 'none';
+                banner.innerHTML = '';
+            }
+            return;
+        }
+        const listHtml = ids.map(id => {
+            const name = escapeHtml(instanceNamesMap[id]);
+            return `<u>${name}</u>`;
+        }).join(', ');
+        const newHtml = lang === 'fr'
+            ? `⚠️ Diffusion d'une source de secours sur : ${listHtml}`
+            : `⚠️ Backup playback active on: ${listHtml}`;
+        if (banner.innerHTML !== newHtml) {
+            banner.innerHTML = newHtml;
+        }
+        if (banner.style.display !== 'block') {
+            banner.style.display = 'block';
+        }
+    }
+
+    function disconnectAllSockets() {
+        for (let id in sockets) {
+            try { sockets[id].disconnect(); } catch(e) {}
+            delete sockets[id];
+        }
+        backupInstances = {};
+        updateBackupBanner();
+    }
+
+    function loadInstances() {
+        fetch('/api/instances').then(r => {
+            if (r.status === 401 || r.status === 403) {
+                disconnectAllSockets();
+                window.location.reload();
+                return null;
+            }
+            return r.json();
+        }).then(data => {
+            if (!data) return;
+            instanceNamesMap = {};
+            instancesCache = {};
+            const runningIds = new Set();
+            data.forEach(i => {
+                instanceNamesMap[i.id] = i.name;
+                instancesCache[i.id] = i;
+                if (i.running) runningIds.add(i.id);
+            });
+            for (let bId in backupInstances) {
+                if (!runningIds.has(bId)) delete backupInstances[bId];
+            }
+            updateBackupBanner();
+
+            // Structural footprint: rebuilds the array only if instances are added, removed, or change their on/off state
+            const structSig = data.length === 0 ? '__EMPTY__' : data.map(i => `${i.id}:${i.running}:${i.port}:${i.name}`).join('|');
+            
+            if (structSig !== currentRenderedSig) {
+                currentRenderedSig = structSig;
+                renderInstancesTable(data);
+            } else {
+                // Surgical update WITHOUT destroying the DOM or resetting the VU meters
+                data.forEach(inst => {
+                    const smtpBox = document.getElementById(`smtp-box-${inst.id}`);
+                    if (smtpBox) {
+                        const freshHtml = buildAlertsHtml(inst);
+                        if (smtpBox.innerHTML.trim() !== freshHtml.trim()) {
+                            smtpBox.innerHTML = freshHtml;
+                        }
+                    }
+                    const forcedBadge = document.getElementById(`forced-badge-${inst.id}`);
+                    if (forcedBadge) {
+                        const freshForced = buildForcedBadgeHtml(inst);
+                        if (forcedBadge.innerHTML.trim() !== freshForced.trim()) {
+                            forcedBadge.innerHTML = freshForced;
+                        }
+                    }
+                    const resBox = document.getElementById(`res-box-${inst.id}`);
+                    if (resBox) {
+                        const freshRes = buildResourceHtml(inst);
+                        if (resBox.innerHTML.trim() !== freshRes.trim()) {
+                            resBox.innerHTML = freshRes;
+                        }
+                    }
+                    const devBox = document.getElementById(`audio-dev-${inst.id}`);
+                    if (devBox) {
+                        const freshDev = buildAudioDeviceHtml(inst);
+                        if (devBox.innerHTML.trim() !== freshDev.trim()) {
+                            devBox.innerHTML = freshDev;
+                        }
+                    }
+                    const autoChk = document.getElementById(`autostart-chk-${inst.id}`);
+                    if (autoChk && autoChk.checked !== Boolean(inst.autostart)) {
+                        autoChk.checked = Boolean(inst.autostart);
+                    }
+                });
+            }
+            loadIoAndConnect(data);
+        });
+    }
+
+    function buildAlertsHtml(inst) {
+        const colon = lang === 'fr' ? ' :' : ':';
+        let alertsHtml = '';
+        if (!inst.details.smtp_enabled) {
+            alertsHtml = `
+                <div style="display:flex; align-items:center; gap:6px; color:#888; font-size:0.75rem;">
+                    <span style="display:inline-block; width:7px; height:7px; border-radius:50%; background:#94a3b8;"></span>
+                    <span>${lang === 'fr' ? 'Alertes e-mail désactivées' : 'Email alerts disabled'}</span>
+                </div>
+            `;
+        } else {
+            alertsHtml = `
+                <div style="display:flex; align-items:center; gap:6px; color:var(--success); font-weight:bold; font-size:0.75rem; margin-bottom:4px; padding-bottom:3px; border-bottom:1px solid #dae6f0;">
+                    <span style="display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--success);"></span>
+                    <span>${lang === 'fr' ? 'Service SMTP actif' : 'SMTP Service active'}</span>
+                </div>
+            `;
+            inst.details.sources.forEach((s, idx) => {
+                const srcLabel = lang === 'fr' ? ['Principale', 'Secours 1', 'Secours 2'][idx] : ['Main', 'Backup 1', 'Backup 2'][idx];
+                let tags = [];
+                if (s.alert_silent) {
+                    tags.push(`<span style="background:#eef2f6; color:#334155; border:1px solid #cbd5e1; padding:1px 5px; border-radius:3px; font-weight:500; font-size:0.68rem;">${lang === 'fr' ? 'Silence' : 'Silent'}</span>`);
+                }
+                if (s.alert_unreachable) {
+                    tags.push(`<span style="background:#eef2f6; color:#334155; border:1px solid #cbd5e1; padding:1px 5px; border-radius:3px; font-weight:500; font-size:0.68rem;">${lang === 'fr' ? 'Inaccessible' : 'Unreachable'}</span>`);
+                }
+                
+                const alertsContent = tags.length > 0 
+                    ? `<div style="display:flex; gap:4px; align-items:center;">${tags.join('')}</div>`
+                    : `<span style="color:#94a3b8; font-style:italic; font-size:0.7rem;">${lang === 'fr' ? 'Aucune alerte' : 'No alerts'}</span>`;
+
+                alertsHtml += `
+                    <div style="display:flex; justify-content:space-between; align-items:center; padding:2px 0; font-size:0.75rem; border-top:${idx > 0 ? '1px dashed #e2e8f0' : 'none'};">
+                        <span style="color:#555; font-weight:500;">${srcLabel}${colon}</span>
+                        ${alertsContent}
+                    </div>
+                `;
+            });
+        }
+        return alertsHtml;
+    }
+
+    function buildForcedBadgeHtml(inst) {
+        const mode = inst.details && inst.details.selection_mode ? String(inst.details.selection_mode) : 'auto';
+        if (mode === 'auto') return '';
+        const badgeText = lang === 'fr' ? 'FORCÉE' : 'FORCED';
+        const tip = lang === 'fr' ? 'Mode automatique désactivé sur cette instance' : 'Automatic mode disabled on this instance';
+        return `<span style="background:var(--danger); color:white; padding:2px 6px; border-radius:3px; font-size:0.7rem; font-weight:bold; margin-left:8px; vertical-align:middle; display:inline-block;" title="${escapeHtml(tip)}">${badgeText}</span>`;
+    }
+
+    function buildResourceHtml(inst) {
+        if (!inst.monitor_cpu_ram) return '';
+        const colon = lang === 'fr' ? ' :' : ':';
+        if (!inst.running || !inst.sys_stats) {
+            return `<div style="margin-top: 6px; font-size:0.75rem; color:#888;"><b>CPU${colon}</b> -- &nbsp;|&nbsp; <b>RAM${colon}</b> --</div>`;
+        }
+        return `<div style="margin-top: 6px; font-size:0.75rem;">
+            <b>CPU${colon}</b> <span style="color:#333; background:#eef2f6; padding:1px 6px; border-radius:3px; border:1px solid #cbd5e1; font-family:monospace;">${Number(inst.sys_stats.cpu).toFixed(1)}%</span>
+            &nbsp;
+            <b>RAM${colon}</b> <span style="color:#333; background:#eef2f6; padding:1px 6px; border-radius:3px; border:1px solid #cbd5e1; font-family:monospace;">${Number(inst.sys_stats.ram_pct).toFixed(1)}%</span>
+        </div>`;
+    }
+
+    function buildAudioDeviceHtml(inst) {
+        const colon = lang === 'fr' ? ' :' : ':';
+        const safeDev = escapeHtml(inst.details.output_device);
+        const gainVal = Number(inst.details.output_gain);
+        const hasGain = !isNaN(gainVal) && Math.abs(gainVal) > 0.01;
+        const gainStr = hasGain ? ` <span style="color:#666; font-weight:normal; white-space:nowrap;">(Gain${colon} ${gainVal > 0 ? '+' : ''}${gainVal.toFixed(1)} dB)</span>` : '';
+        return `🔊 ${safeDev}${gainStr}`;
+    }
+
+    function renderInstancesTable(data) {
+        const tbody = document.getElementById('instances-table');
+        tbody.innerHTML = '';
+        
+        if (data.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #888;">${lang === 'fr' ? 'Aucune instance configurée. Cliquez sur "Ajouter une instance" pour commencer.' : 'No instance configured. Click "Add Instance" to add one.'}</td></tr>`;
+            return;
+        }
+        
+        data.forEach((inst, instIdx) => {
+            const safeId = escapeHtml(inst.id);
+            const safeName = escapeHtml(inst.name);
+            const safeDev = escapeHtml(inst.details.output_device);
+            const badgeTxt = inst.running ? (lang === 'fr' ? 'ACTIVE' : 'RUNNING') : (lang === 'fr' ? 'ARRÊTÉE' : 'STOPPED');
+            const statusBadge = `<span class="badge ${inst.running ? 'on' : 'off'}">${badgeTxt}</span>`;
+            const browserHost = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname === '::1' || window.location.hostname === '[::1]') ? LOCAL_IP : window.location.hostname;
+            const portDisplay = inst.port === "N/A" ? '<span style="color:#999;font-style:italic;">-</span>' : `${escapeHtml(browserHost)}:${escapeHtml(inst.port)}`;
+            const rawTargetUrl = `${window.location.protocol}//${browserHost}:${inst.port}`;
+            const targetUrl = /^https?:\/\//i.test(rawTargetUrl) ? escapeHtml(rawTargetUrl) : '#';
+            
+            let actions = '';
+            if (inst.running) {
+                actions += `<button class="action-btn btn-stop" data-id="${safeId}" data-name="${safeName}" onclick="stopInstance(this.dataset.id, this.dataset.name)">${lang === 'fr' ? 'Arrêter' : 'Stop'}</button>`;
+                if (inst.port !== "N/A") {
+                    actions += `<a href="${targetUrl}" target="_blank" rel="noopener noreferrer" class="action-btn btn-open">${lang === 'fr' ? "Accéder à l'interface" : 'Access the interface'}</a>`;
+                }
+            } else {
+                actions += `<button class="action-btn btn-start" onclick="apiCall('/api/instances/${safeId}/start')">${lang === 'fr' ? 'Démarrer' : 'Start'}</button>`;
+            }
+            actions += `
+                <div class="inst-menu-wrap">
+                    <button type="button" class="action-btn btn-inst-settings" onclick="toggleInstMenu('${safeId}', event)">${lang === 'fr' ? 'Paramètres' : 'Settings'} &#9662;</button>
+                    <div id="inst-menu-${safeId}" class="inst-dropdown">
+                        <button type="button" data-id="${safeId}" onclick="openEditModal(this.dataset.id)">${lang === 'fr' ? 'Modifier' : 'Edit'}</button>
+                        <button type="button" class="inst-opt-del" data-id="${safeId}" data-name="${safeName}" onclick="deleteInstance(this.dataset.id, this.dataset.name)">${lang === 'fr' ? 'Retirer' : 'Remove'}</button>
+                    </div>
+                </div>
+            `;
+            
+            const colon = lang === 'fr' ? ' :' : ':';
+            const srcNames = lang === 'fr' ? ["Principale", "Secours 1", "Secours 2"] : ["Main", "Backup 1", "Backup 2"];
+
+            // Principal line
+            const pathTitle = lang === 'fr' ? `Chemin de l'instance : ${inst.path}` : `Instance Path: ${inst.path}`;
+            const isNameLong = inst.name.length > 20;
+            const initTitle = isNameLong ? `${inst.name}\n${pathTitle}` : pathTitle;
+            const trMain = document.createElement('tr');
+            trMain.innerHTML = `
+                <td style="max-width: 260px;" title="${escapeHtml(initTitle)}" data-name="${escapeHtml(inst.name)}" data-path="${escapeHtml(pathTitle)}" onmouseenter="const s = this.querySelector('.inst-name-txt'); this.title = (s && s.scrollWidth > s.clientWidth) ? this.dataset.name + '\n' + this.dataset.path : this.dataset.path;">
+                    <div style="display: flex; align-items: center; gap: 4px; overflow: hidden;">
+                        <span class="inst-name-txt" style="font-weight: bold; color: var(--blue); font-size: 1.05rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${safeName}</span>
+                        <span id="forced-badge-${safeId}" style="flex-shrink: 0;">${buildForcedBadgeHtml(inst)}</span>
+                    </div>
+                </td>
+                <td style="white-space: nowrap;">${statusBadge}</td>
+                <td id="mon-${safeId}" style="white-space: nowrap;"><span style="color:#999;">-</span></td>
+                <td style="white-space: nowrap;">${portDisplay}</td>
+                <td style="text-align: center; white-space: nowrap;">
+                    <label class="switch" title="${lang === 'fr' ? 'Démarrage auto' : 'Autostart'}">
+                        <input type="checkbox" id="autostart-chk-${safeId}" ${inst.autostart ? 'checked' : ''} onchange="toggleAutostart('${safeId}', this.checked)">
+                        <span class="slider"></span>
+                    </label>
+                </td>
+                <td style="text-align: right; white-space: nowrap;">${actions}</td>
+            `;
+            tbody.appendChild(trMain);
+
+            // Sub-line of detailed indicators
+            const trDetail = document.createElement('tr');
+            trDetail.className = 'detail-row';
+            trDetail.innerHTML = `
+                <td colspan="6">
+                    <div class="sub-panel">
+                        <div class="sub-col" style="flex: 1.4; min-width: 310px;">
+                            <div class="sub-title">${lang === 'fr' ? 'État des sources' : 'Sources Status'}</div>
+                            <div id="sub-sources-${safeId}">
+                                ${inst.details.sources.map((s, idx) => `
+                                    <div id="sub-src-${safeId}-${idx}" style="display:flex; align-items:center; font-size:0.8rem; margin-bottom:4px; height:22px; overflow:hidden;">
+                                        <div style="flex: 0 0 12px; margin-right:4px; display:inline-flex; align-items:center; justify-content:center;"></div>
+                                        <div style="flex: 0 0 68px; font-weight:500; color:#555; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${srcNames[idx]}">${srcNames[idx]}${colon}</div>
+                                        <div style="flex: 0 0 115px; text-align:center;"><span style="background:#999; color:white; padding:2px 6px; border-radius:3px; font-size:0.7rem; font-weight:bold; display:inline-block; min-width:90px; white-space:nowrap; box-sizing:border-box;">${lang === 'fr' ? 'HORS LIGNE' : 'OFFLINE'}</span></div>
+                                        <div style="flex:1; margin-left:6px; font-size:0.7rem; color:#777; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"></div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+
+                        <div class="sub-col" style="flex: 1.3;">
+                            <div class="sub-title">${lang === 'fr' ? 'Sortie Audio & Niveaux Sonores' : 'Audio Output & Levels'}</div>
+                            <div id="audio-dev-${safeId}" style="font-size: 0.8rem; font-weight: bold; color: #333; margin-bottom: 6px; line-height: 1.35; word-break: break-word;" title="${safeDev}">
+                                ${buildAudioDeviceHtml(inst)}
+                            </div>
+                            <div class="vu-h-line">
+                                <span class="vu-h-lbl">L</span>
+                                <div class="vu-h-bar-area">
+                                    <div class="vu-h-mask" id="vu-mask-l-${inst.id}"></div>
+                                </div>
+                                <span class="vu-h-readout" id="vu-val-l-${inst.id}">-60 dB</span>
+                            </div>
+                            <div class="vu-h-line" style="margin-top:4px;">
+                                <span class="vu-h-lbl">R</span>
+                                <div class="vu-h-bar-area">
+                                    <div class="vu-h-mask" id="vu-mask-r-${inst.id}"></div>
+                                </div>
+                                <span class="vu-h-readout" id="vu-val-r-${inst.id}">-60 dB</span>
+                            </div>
+                            <div id="uecp-box-${safeId}" style="display:none; margin-top:8px; background:#f4f7fa; border:1px solid #dae6f0; padding:5px 8px; border-radius:4px; font-size:0.75rem;"></div>
+                        </div>
+
+                        <div class="sub-col" style="flex: 1.3;">
+                            <div class="sub-title">${lang === 'fr' ? 'Données de diffusion' : 'Broadcast Data'}</div>
+                            <div style="font-size: 0.8rem; color: #444; line-height: 1.45;">
+                                <div style="margin-bottom:2px;"><b>${lang === 'fr' ? 'En cours de diffusion' : 'Now Playing'}${colon}</b></div>
+                                <div id="np-${inst.id}" style="background:#f4f7fa; border:1px solid #dae6f0; padding:4px 8px; border-radius:4px; color:#999; font-style:italic; min-height:18px; font-size:0.75rem; word-break:break-word; margin-bottom:6px;">${lang === 'fr' ? 'Serveur inactif...' : 'Server inactive...'}</div>
+                                <div style="margin-top: 4px;"><b>${lang === 'fr' ? 'Durée de fonctionnement' : 'Uptime'}${colon}</b> <span id="uptime-${inst.id}" style="color:#555; background:#eee; padding:2px 6px; border-radius:3px; border:1px solid #ddd; font-size:0.75rem;">${lang === 'fr' ? '0j 00:00:00' : '0d 00:00:00'}</span></div>
+                                <div id="res-box-${safeId}">${buildResourceHtml(inst)}</div>
+                            </div>
+                        </div>
+
+                        <div class="sub-col">
+                            <div class="sub-title">${lang === 'fr' ? 'Seuils, délais & Alertes par mail' : 'Thresholds & Email Alerts'}</div>
+                            <div style="font-size: 0.75rem; color: #444; line-height: 1.45; margin-bottom: 6px; background:#f4f7fa; border:1px solid #dae6f0; padding:4px 8px; border-radius:4px;">
+                                <span style="display:inline-block; min-width:40px; font-weight:bold; color:var(--danger);">${lang === 'fr' ? 'Perte audio' : 'Audio Loss'}${colon}</span> ${inst.details.loss_thresh} dB (${inst.details.loss_time}s)<br>
+                                <span style="display:inline-block; min-width:40px; font-weight:bold; color:var(--danger);">${lang === 'fr' ? 'Perte connexion' : 'Connection Loss'}${colon}</span> ${inst.details.unreach_time || 5}s<br>
+                                <span style="display:inline-block; min-width:40px; font-weight:bold; color:var(--success);">${lang === 'fr' ? 'Rétablissement audio' : 'Audio Recovery'}${colon}</span> ${inst.details.rec_thresh} dB (${inst.details.rec_time}s)
+                            </div>
+                            <div id="smtp-box-${inst.id}" style="background:#f4f7fa; border:1px solid #dae6f0; padding:4px 8px; border-radius:4px; font-size:0.75rem; min-height:22px;">${buildAlertsHtml(inst)}</div>
+                        </div>
+                    </div>
+                </td>
+            `;
+            tbody.appendChild(trDetail);
+
+            if (instIdx < data.length - 1) {
+                const trSep = document.createElement('tr');
+                trSep.innerHTML = `<td colspan="6" style="padding: 14px 12px; border: none; background: transparent;"><div style="border-top: 2px solid #cbd5e1; width: 100%;"></div></td>`;
+                tbody.appendChild(trSep);
+            }
+        });
+    }
+
+    function autoName() {
+        const path = document.getElementById('inst-path').value;
+        if(!path) return;
+        const fd = new FormData(); fd.append('path', path);
+        fetch('/api/instances/fetch_name', {method: 'POST', body: fd})
+            .then(r => r.json())
+            .then(d => {
+                if(d.status === 'ok') document.getElementById('inst-name').value = d.name;
+                else alert(d.message);
+            });
+    }
+
+    function closeAddModal() {
+        document.getElementById('add-modal').style.display = 'none';
+        document.getElementById('add-form').reset();
+    }
+
+    function addInstance(e) {
+        e.preventDefault();
+        const fd = new FormData();
+        fd.append('name', document.getElementById('inst-name').value);
+        fd.append('path', document.getElementById('inst-path').value);
+        fd.append('autostart', document.getElementById('inst-autostart') ? document.getElementById('inst-autostart').checked : false);
+        fetch('/api/instances/add', { method: 'POST', body: fd })
+            .then(r => r.json())
+            .then(d => {
+                if(d.status === 'ok') {
+                    closeAddModal();
+                    currentRenderedSig = "";
+                    loadInstances();
+                } else alert(d.message);
+            });
+    }
+
+    function toggleInstMenu(id, ev) {
+        if (ev) ev.stopPropagation();
+        const target = document.getElementById(`inst-menu-${id}`);
+        const menus = document.getElementsByClassName('inst-dropdown');
+        for (let i = 0; i < menus.length; i++) {
+            if (menus[i] !== target) menus[i].style.display = 'none';
+        }
+        if (target) {
+            target.style.display = target.style.display === 'block' ? 'none' : 'block';
+        }
+    }
+
+    function openEditModal(id) {
+        const menus = document.getElementsByClassName('inst-dropdown');
+        for (let i = 0; i < menus.length; i++) menus[i].style.display = 'none';
+        const inst = instancesCache[id];
+        if (!inst) return;
+        document.getElementById('edit-inst-id').value = inst.id;
+        document.getElementById('edit-inst-path').value = inst.path || '';
+        document.getElementById('edit-inst-name').value = inst.name || '';
+        document.getElementById('edit-inst-autostart').checked = Boolean(inst.autostart);
+        document.getElementById('edit-modal').style.display = 'flex';
+    }
+
+    function closeEditModal() {
+        document.getElementById('edit-modal').style.display = 'none';
+        document.getElementById('edit-form').reset();
+    }
+
+    function autoNameEdit() {
+        const path = document.getElementById('edit-inst-path').value;
+        if (!path) return;
+        const fd = new FormData(); fd.append('path', path);
+        fetch('/api/instances/fetch_name', {method: 'POST', body: fd})
+            .then(r => r.json())
+            .then(d => {
+                if (d.status === 'ok') document.getElementById('edit-inst-name').value = d.name;
+                else alert(d.message);
+            });
+    }
+
+    function editInstance(e) {
+        e.preventDefault();
+        const id = document.getElementById('edit-inst-id').value;
+        const fd = new FormData();
+        fd.append('name', document.getElementById('edit-inst-name').value);
+        fd.append('path', document.getElementById('edit-inst-path').value);
+        fd.append('autostart', document.getElementById('edit-inst-autostart').checked);
+        fetch(`/api/instances/${encodeURIComponent(id)}/edit`, { method: 'POST', body: fd })
+            .then(r => r.json())
+            .then(d => {
+                if (d.status === 'ok') {
+                    closeEditModal();
+                    currentRenderedSig = "";
+                    loadInstances();
+                } else alert(d.message);
+            });
+    }
+
+    function toggleAutostart(id, isChecked) {
+        const fd = new FormData(); fd.append('autostart', isChecked);
+        fetch(`/api/instances/${id}/autostart`, { method: 'POST', body: fd })
+            .then(r => {
+                if (r.status === 401 || r.status === 403) {
+                    disconnectAllSockets();
+                    window.location.reload();
+                } else if (!r.ok) {
+                    const chk = document.getElementById(`autostart-chk-${id}`);
+                    if (chk) chk.checked = !isChecked;
+                }
+            })
+            .catch(() => {
+                const chk = document.getElementById(`autostart-chk-${id}`);
+                if (chk) chk.checked = !isChecked;
+            });
+    }
+
+    function startAllInstances() {
+        if(confirm(lang === 'fr' ? 'Êtes-vous sûr de vouloir démarrer toutes les instances configurées ?' : 'Are you sure you want to start all configured instances?')) {
+            fetch('/api/instances').then(r => r.json()).then(data => {
+                let promises = data.filter(i => !i.running).map(inst => fetch(`/api/instances/${inst.id}/start`, { method: 'POST' }));
+                Promise.all(promises).then(() => { currentRenderedSig = ""; loadInstances(); });
+            });
+        }
+    }
+
+    function stopAllInstances() {
+        if(confirm(lang === 'fr' ? 'Êtes-vous sûr de vouloir arrêter toutes les instances en cours d\'exécution ?' : 'Are you sure you want to stop all running instances?')) {
+            fetch('/api/instances').then(r => r.json()).then(data => {
+                let promises = data.filter(i => i.running).map(inst => fetch(`/api/instances/${inst.id}/stop`, { method: 'POST' }));
+                Promise.all(promises).then(() => { currentRenderedSig = ""; loadInstances(); });
+            });
+        }
+    }
+
+    function stopInstance(id, name) {
+        const msg = lang === 'fr'
+            ? `Êtes-vous sûr de vouloir arrêter l'instance "${name}" ?`
+            : `Are you sure you want to stop the instance "${name}"?`;
+        if (confirm(msg)) {
+            apiCall(`/api/instances/${id}/stop`);
+        }
+    }
+
+    function deleteInstance(id, name) {
+        const msg = lang === 'fr' ? `Vous vous apprêtez à retirer l'instance "${name}" du Manager.\n\nContinuer ?` : `You are about to remove the "${name}" instance from the Manager.\n\nContinue?`;
+        if (confirm(msg)) {
+            apiCall(`/api/instances/${id}/delete`);
+            currentRenderedSig = "";
+        }
+    }
+
+    function apiCall(url) {
+        fetch(url, { method: 'POST' }).then(r => r.json()).then(d => {
+            if(d.status === 'error' && d.message) alert(d.message);
+            currentRenderedSig = "";
+            loadInstances();
+        });
+    }
+
+    function showRestartingScreen(message, redirectUrl) {
+        disconnectAllSockets();
+        if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+        const title = lang === 'fr' ? 'Redémarrage du système' : 'System Restart';
+        const subTxt = lang === 'fr'
+            ? 'Vous allez être automatiquement redirigé vers la page de connexion dans 5 secondes.'
+            : 'You will be automatically redirected to the login page in 5 seconds.';
+        document.title = `${title} - WestBroadcast Manager`;
+        document.body.innerHTML = `
+            <style>
+                body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; padding-top: 100px; background: #eef2f5; color: #333; height: 100vh; margin: 0; }
+                .restart-card { background: white; padding: 40px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); display: inline-block; min-width: 400px; }
+                .restart-card h2 { color: #3c8dbc; margin-top: 0; font-weight: bold; font-size: 1.5rem; }
+                .restart-loader { border: 4px solid #f3f3f3; border-top: 4px solid #3c8dbc; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto; }
+                @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+            </style>
+            <div class="restart-card">
+                <div class="restart-loader"></div>
+                <h2>${escapeHtml(message)}</h2>
+                <p>${escapeHtml(subTxt)}</p>
+            </div>`;
+        setTimeout(() => { window.location.href = redirectUrl; }, 5000);
+    }
+
+    function restartManager() {
+        if(confirm(lang === 'fr' ? "Vous vous apprêtez à redémarrer le Manager. Continuer ?" : "You are about to restart the Manager. Continue?")) {
+            fetch('/api/manager/restart', {method: 'POST'}).then(() => {
+                const msg = lang === 'fr'
+                    ? 'Redémarrage du Manager en cours... Veuillez patienter.'
+                    : 'The Manager is restarting... Please wait.';
+                showRestartingScreen(msg, '/');
+            });
+        }
+    }
+
+    function resetManager() {
+        if(confirm(lang === 'fr' ? "Voulez-vous vraiment RÉINITIALISER le Manager ?\n\nVotre configuration sera perdue.\nCela n'affectera pas les instances Streamer." : "Do you really want to RESET the Manager?\n\nYour configuration will be lost.\nIt won't affect your Streamer instances.")) {
+            fetch('/api/manager/reset', {method: 'POST'}).then(() => {
+                const msg = lang === 'fr'
+                    ? 'Réinitialisation du Manager aux paramètres d\'usine... Veuillez patienter.'
+                    : 'Resetting the Manager to factory settings... Please wait.';
+                const resetUrl = window.location.port ? `${window.location.protocol}//${window.location.hostname}:8000/` : '/';
+                showRestartingScreen(msg, resetUrl);
+            });
+        }
+    }
+
+    const scalePoints = [0, -3, -6, -10, -15, -20, -25, -30, -40, -50, -60];
+    const percentPoints = [100, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0];
+
+    function dbToPct(db) {
+        if (db >= 0) return 100; // 0 dB and any positive value reach exactly 100% (the far-right end)
+        if (db <= -60) return 0;
+        for (let i = 0; i < scalePoints.length - 1; i++) {
+            if (db <= scalePoints[i] && db > scalePoints[i+1]) {
+                let rangeDB = scalePoints[i] - scalePoints[i+1];
+                let rangePct = percentPoints[i] - percentPoints[i+1];
+                let diff = db - scalePoints[i+1];
+                return percentPoints[i+1] + (diff / rangeDB * rangePct);
+            }
+        }
+        return 0;
+    }
+
+    // --- Socket.IO Monitoring ---
+    function loadIoAndConnect(instances) {
+        let runningInst = instances.find(i => i.running && i.port !== "N/A");
+        if (!runningInst) {
+            disconnectAllSockets();
+            return;
+        }
+
+        if (!ioLoaded && typeof io === 'undefined') {
+            const script = document.createElement('script');
+            const targetUrl = `${window.location.protocol}//${window.location.hostname}:${runningInst.port}`;
+            script.src = `${targetUrl}/static/socket.io.js`;
+            script.onload = () => { ioLoaded = true; connectAll(instances); };
+            document.head.appendChild(script);
+        } else if (ioLoaded) connectAll(instances);
+    }
+
+    function connectAll(instances) {
+        const validRunningIds = new Set(instances.filter(i => i.running && i.port !== "N/A").map(i => i.id));
+        for (let existingId in sockets) {
+            if (!validRunningIds.has(existingId)) {
+                try { sockets[existingId].disconnect(); } catch(e) {}
+                delete sockets[existingId];
+                delete backupInstances[existingId];
+                const mon = document.getElementById(`mon-${existingId}`);
+                if (mon) mon.innerHTML = '<span style="color:#999;">-</span>';
+                const uBox = document.getElementById(`uecp-box-${existingId}`);
+                if (uBox) uBox.style.display = 'none';
+            }
+        }
+        updateBackupBanner();
+
+        instances.forEach(inst => {
+            if (inst.running && inst.port !== "N/A") {
+                const targetUrl = `${window.location.protocol}//${window.location.hostname}:${inst.port}`;
+                if (sockets[inst.id] && sockets[inst.id]._wbUrl !== targetUrl) {
+                    try { sockets[inst.id].disconnect(); } catch(e) {}
+                    delete sockets[inst.id];
+                }
+                if (!sockets[inst.id]) {
+                    const socket = io(targetUrl, { transports: ['polling', 'websocket'] });
+                    socket._wbUrl = targetUrl;
+                    sockets[inst.id] = socket;
+                    socket.on('status_update', (data) => updateMonitoringUI(inst.id, data));
+                }
+            }
+        });
+    }
+
+    function updateMonitoringUI(id, data) {
+        if (!sockets[id] || !(id in instanceNamesMap)) return;
+        const srcNames = lang === 'fr' ? ["Principale", "Secours 1", "Secours 2"] : ["Main", "Backup 1", "Backup 2"];
+        
+        // 1. Monitoring Column + Global Banner Update - Backup
+        const el = document.getElementById(`mon-${id}`);
+        if (el) {
+            if (data.active_idx === 0) {
+                el.innerHTML = `<span class="badge on">${lang === 'fr' ? 'NORMALE' : 'NORMAL'}</span>`;
+            } else {
+                el.innerHTML = `<span class="badge backup">${lang === 'fr' ? 'SECOURS' : 'BACKUP'}</span>`;
+            }
+        }
+        if (data.active_idx === 1 || data.active_idx === 2) {
+            backupInstances[id] = data.active_idx;
+        } else {
+            delete backupInstances[id];
+        }
+        updateBackupBanner();
+
+        const colon = lang === 'fr' ? ' :' : ':';
+        
+        // 2. Status of the 3 sources
+        for (let sIdx = 0; sIdx < 3; sIdx++) {
+            const srcEl = document.getElementById(`sub-src-${id}-${sIdx}`);
+            if (srcEl && data.src_statuses[sIdx]) {
+                let sTxt = data.src_statuses[sIdx][0];
+                let sCol = data.src_statuses[sIdx][1];
+                if (lang === 'fr') {
+                    const fr_stat = {"PLAYING": "LECTURE", "SILENT": "SILENCE", "UNREACHABLE": "INACCESSIBLE", "BUFFERING...": "CHARGEMENT...", "READY TO PLAY": "PRÊTE À ÊTRE JOUÉE", "NOT CONFIGURED": "NON CONFIGURÉE"};
+                    if(fr_stat[sTxt]) sTxt = fr_stat[sTxt];
+                }
+                const isActive = (sIdx === data.active_idx);
+                const playIco = isActive 
+                    ? `<svg viewBox="0 0 24 24" width="11" height="11" fill="var(--success)"><polygon points="5,3 19,12 5,21"/></svg>` 
+                    : ``;
+
+                srcEl.style.overflow = "hidden";
+                const safeCodec = data.codecs && data.codecs[sIdx] ? `(${escapeHtml(data.codecs[sIdx])})` : '';
+                srcEl.innerHTML = `
+                    <div style="flex: 0 0 12px; margin-right:4px; display:inline-flex; align-items:center; justify-content:center;">${playIco}</div>
+                    <div style="flex: 0 0 68px; font-weight:${isActive ? 'bold' : '500'}; color:${isActive ? 'var(--blue)' : '#555'}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${srcNames[sIdx]}">${srcNames[sIdx]}${colon}</div>
+                    <div style="flex: 0 0 115px; text-align:center;"><span style="background:${escapeHtml(sCol)}; color:white; padding:2px 6px; border-radius:3px; font-size:0.7rem; font-weight:bold; display:inline-block; min-width:90px; white-space:nowrap; box-sizing:border-box;">${escapeHtml(sTxt)}</span></div>
+                    <div style="flex:1; margin-left:6px; font-size:0.7rem; color:#777; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${safeCodec}">${safeCodec}</div>
+                `;
+            }
+        }
+
+        // 3. VU meters for the active source (Allows for the display of the unclippped positive input peak)
+        if (data.vu && data.vu.sources && data.vu.sources[data.active_idx]) {
+            const srcVu = data.vu.sources[data.active_idx];
+            const outL = srcVu.l !== undefined ? srcVu.l : -60;
+            const outR = srcVu.r !== undefined ? srcVu.r : -60;
+            const pctL = dbToPct(outL);
+            const pctR = dbToPct(outR);
+
+            const maskL = document.getElementById(`vu-mask-l-${id}`);
+            const maskR = document.getElementById(`vu-mask-r-${id}`);
+            const valL = document.getElementById(`vu-val-l-${id}`);
+            const valR = document.getElementById(`vu-val-r-${id}`);
+
+            if (maskL) maskL.style.width = (100 - pctL) + '%';
+            if (maskR) maskR.style.width = (100 - pctR) + '%';
+            
+            if (valL) valL.innerText = outL > -60 ? outL.toFixed(1) + ' dB' : '-60 dB';
+            if (valR) valR.innerText = outR > -60 ? outR.toFixed(1) + ' dB' : '-60 dB';
+        }
+        
+        // 4. Updating Information (Now Playing & Uptime)
+        const npEl = document.getElementById(`np-${id}`);
+        const upEl = document.getElementById(`uptime-${id}`);
+        if (npEl && data.now_playing) {
+            let npText = data.now_playing.replace('Now playing: ', '').replace('En cours de lecture : ', '');
+            npEl.innerText = npText || '-';
+            npEl.title = npText;
+            npEl.style.color = 'var(--blue)';
+        }
+        if (upEl && data.uptime) {
+            let upStr = data.uptime.replace('Uptime: ', '').replace('Durée de fonctionnement : ', '');
+            if (lang === 'fr') {
+                upStr = upStr.replace('d ', 'j ');
+            }
+            upEl.innerText = upStr;
+        }
+
+        // 5. UECP communication status, when available on the instance
+        const uecpBox = document.getElementById(`uecp-box-${id}`);
+        if (uecpBox) {
+            let u = null;
+            if (Array.isArray(data.uecp)) {
+                if (data.uecp[data.active_idx] && data.uecp[data.active_idx].enabled) {
+                    u = data.uecp[data.active_idx];
+                } else {
+                    u = data.uecp.find(x => x && x.enabled) || null;
+                }
+            }
+            if (!u) {
+                uecpBox.style.display = 'none';
+            } else {
+                const outStr = u.output || '';
+                const errStr = u.error || '';
+                const hasErr = Boolean(errStr) || outStr.startsWith('Error:');
+                const isOk = !hasErr && (outStr.startsWith('Connected to') || outStr.startsWith('Sending to'));
+
+                let dotColor = '#94a3b8';
+                let statusColor = '#555';
+                let statusLabel = '';
+
+                let statusTooltip = '';
+                if (hasErr) {
+                    dotColor = 'var(--danger)';
+                    statusColor = 'var(--danger)';
+                    const rawErr = errStr || outStr.replace(/^Error:\s*/, '');
+                    statusLabel = lang === 'fr'
+                        ? "Erreur de communication UECP ! Consultez l'instance pour en savoir plus."
+                        : "UECP Communication Error! Check instance to know more.";
+                    statusTooltip = rawErr || statusLabel;
+                } else if (isOk) {
+                    dotColor = 'var(--success)';
+                    statusColor = 'var(--success)';
+                    let dest = outStr;
+                    if (lang === 'fr') {
+                        dest = dest.replace('Connected to ', 'Connecté à ').replace('Sending to ', 'Envoi vers ');
+                    }
+                    statusLabel = (lang === 'fr' ? 'UECP : ' : 'UECP: ') + dest;
+                    statusTooltip = statusLabel;
+                } else {
+                    dotColor = '#e67e22';
+                    statusColor = '#666';
+                    statusLabel = lang === 'fr' ? 'UECP : En attente de données RDS...' : 'UECP: Waiting for RDS frames...';
+                    statusTooltip = statusLabel;
+                }
+
+                const crcStyle = u.crc_errors > 0 ? 'color:var(--danger); font-weight:bold;' : 'color:#666;';
+                const statsTxt = lang === 'fr'
+                    ? `Trames : <b>${Number(u.frames || 0)}</b> | Envoyées : <b>${Number(u.sent || 0)}</b> | <span style="${crcStyle}">CRC err. : ${Number(u.crc_errors || 0)}</span>`
+                    : `Frames: <b>${Number(u.frames || 0)}</b> | Sent: <b>${Number(u.sent || 0)}</b> | <span style="${crcStyle}">CRC err.: ${Number(u.crc_errors || 0)}</span>`;
+
+                uecpBox.style.display = 'block';
+                uecpBox.innerHTML = `
+                    <div style="display:flex; align-items:flex-start; gap:6px; font-weight:bold; color:${statusColor}; margin-bottom:2px; line-height:1.3;">
+                        <span style="display:inline-block; width:7px; height:7px; border-radius:50%; background:${dotColor}; flex-shrink:0; margin-top:4px;"></span>
+                        <span style="word-break:break-word;" title="${escapeHtml(statusTooltip)}">${escapeHtml(statusLabel)}</span>
+                    </div>
+                    <div style="font-size:0.7rem; color:#555;">${statsTxt}</div>
+                `;
+            }
+        }
+    }
+
+    // --- Logs Function ---
+    const frLogDict = {
+        "Manager started.": "Manager démarré.",
+        "Manager settings updated.": "Paramètres du Manager mis à jour.",
+        "Manager restart requested.": "Redémarrage du Manager demandé.",
+        "Factory reset requested.": "Réinitialisation d'usine demandée.",
+        "Logs cleared by user.": "Journaux effacés par l'utilisateur.",
+        "Configuration imported.": "Configuration importée."
+    };
+    const frLogRegex = [
+        { rx: /3 failed login attempts from IP (.+)/, rep: "3 tentatives de connexion échouées depuis l'IP $1" },
+        { rx: /Successful login from IP (.+)\./, rep: "Connexion réussie depuis l'IP $1." },
+        { rx: /Failed login attempt from IP (.+)/, rep: "Tentative de connexion échouée depuis l'IP $1" },
+        { rx: /HTTP Port changed from (\d+) to (\d+)\. Manager restart requested\./, rep: "Port HTTP modifié de $1 vers $2. Redémarrage du Manager demandé." },
+        { rx: /Instance '(.+)' started automatically\./, rep: "Instance '$1' démarrée automatiquement." },
+        { rx: /Instance '(.+)' added\./, rep: "Instance '$1' ajoutée." },
+        { rx: /Instance '(.+)' updated\./, rep: "Instance '$1' mise à jour." },
+        { rx: /Instance '(.+)' removed\./, rep: "Instance '$1' retirée." },
+        { rx: /Instance '(.+)' started\./, rep: "Instance '$1' démarrée." },
+        { rx: /Instance '(.+)' stopped\./, rep: "Instance '$1' arrêtée." },
+        { rx: /Failed to start instance '(.+)': (.+)/, rep: "Échec du démarrage de l'instance '$1' : $2" },
+        { rx: /Autostart enabled for '(.+)'\./, rep: "Démarrage automatique activé pour '$1'." },
+        { rx: /Autostart disabled for '(.+)'\./, rep: "Démarrage automatique désactivé pour '$1'." }
+    ];
+
+    function translateLogEvent(evt) {
+        if (lang !== 'fr' || !evt) return evt;
+        if (frLogDict[evt]) return frLogDict[evt];
+        for (let i = 0; i < frLogRegex.length; i++) {
+            if (frLogRegex[i].rx.test(evt)) return evt.replace(frLogRegex[i].rx, frLogRegex[i].rep);
+        }
+        return evt;
+    }
+
+    function openLogs() {
+        document.getElementById('logs-modal').style.display = 'flex';
+        currentLogPage = 1;
+        loadLogs();
+    }
+
+    function changeLogPage(delta) {
+        currentLogPage += delta;
+        if (currentLogPage < 1) currentLogPage = 1;
+        loadLogs();
+    }
+
+    function loadLogs() {
+        const filter = document.getElementById('log-filter').value;
+        fetch(`/api/logs?page=${currentLogPage}&filter=${encodeURIComponent(filter)}`)
+        .then(r => r.json())
+        .then(data => {
+            const tbody = document.getElementById('logs-body');
+            tbody.innerHTML = "";
+            data.logs.forEach(log => {
+                const tr = document.createElement('tr');
+                let colorClass = "";
+                if (log.level === "ERROR") colorClass = "log-error";
+                else if (log.level === "WARNING") colorClass = "log-warning";
+                else if (log.level === "INFO") colorClass = "log-info";
+                else if (log.level === "SYSTEM") colorClass = "log-system";
+                else if (log.level === "AUTH") colorClass = "log-auth";
+                else if (log.level === "RECOVERY") colorClass = "log-recovery";
+                tr.innerHTML = `<td>${escapeHtml(log.timestamp)}</td><td class="${colorClass}">${escapeHtml(log.level)}</td><td>${escapeHtml(translateLogEvent(log.event))}</td>`;
+                tbody.appendChild(tr);
+            });
+            const totPages = data.total_pages || 1;
+            document.getElementById('log-page-info').innerText = `Page ${data.page} / ${totPages}`;
+            document.getElementById('prev-page-btn').disabled = (data.page <= 1);
+            document.getElementById('next-page-btn').disabled = (data.page >= totPages);
+            currentLogPage = data.page;
+        });
+    }
+
+    function clearLogs() {
+        if (!confirm(lang === 'fr' ? "Êtes-vous sûr de vouloir effacer le journal d'événements ?" : "Are you sure you want to clear all logs?")) return;
+        fetch('/api/logs/clear', { method: 'POST' }).then(() => { currentLogPage = 1; loadLogs(); });
+    }
+
+    let pollInterval = null;
+    window.addEventListener('beforeunload', disconnectAllSockets);
+
+    window.addEventListener('click', function(event) {
+        if (!event.target.matches('.menu-btn')) {
+            const dropdowns = document.getElementsByClassName('menu-overlay');
+            for (let i = 0; i < dropdowns.length; i++) {
+                if (dropdowns[i].style.display === 'block') {
+                    dropdowns[i].style.display = 'none';
+                }
+            }
+        }
+        if (!event.target.closest('.inst-menu-wrap')) {
+            const instMenus = document.getElementsByClassName('inst-dropdown');
+            for (let i = 0; i < instMenus.length; i++) {
+                if (instMenus[i].style.display === 'block') {
+                    instMenus[i].style.display = 'none';
+                }
+            }
+        }
+    });
+
+    const MGR_START_TIME = Number("{{ cfg.start_time }}") || Math.floor(Date.now() / 1000);
+    function updateManagerUptime() {
+        const el = document.getElementById('mgr-uptime');
+        if (!el) return;
+        const total = Math.max(0, Math.floor(Date.now() / 1000) - MGR_START_TIME);
+        const d = Math.floor(total / 86400);
+        const h = String(Math.floor((total % 86400) / 3600)).padStart(2, '0');
+        const m = String(Math.floor((total % 3600) / 60)).padStart(2, '0');
+        const s = String(total % 60).padStart(2, '0');
+        el.innerText = (lang === 'fr')
+            ? `Durée de fonctionnement : ${d}j ${h}:${m}:${s}`
+            : `Uptime: ${d}d ${h}:${m}:${s}`;
+    }
+    updateManagerUptime();
+    setInterval(updateManagerUptime, 1000);
+
+    loadManagerPassword();
+    loadInstances();
+    pollInterval = setInterval(loadInstances, 15000);
+    </script>
+{% endif %}
+</body>
+</html>
