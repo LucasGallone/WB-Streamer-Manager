@@ -5,7 +5,7 @@ WB-Streamer Manager is a centralized supervisor and multi-instance orchestrator 
 Built for radio stations, broadcast engineers, or multi-stream environments operating several audio decoders on one computer, WB-Streamer Manager eliminates the need to manually open and track each instance individually.
 <br>
 <br>
-Entirely open source, this tool is based on a Python backend (Flask + Tkinter) and connects directly to active instances via Socket.IO for real-time telemetry without overloading the supervisor.
+Entirely open source, this tool is based on a Python backend and connects directly to active instances via Socket.IO for real-time telemetry without overloading the supervisor.
 <br>
 <br>
 WB-Streamer Manager runs as a portable installation via a dedicated launcher script. Running instances remain completely autonomous: closing the Manager will not interrupt ongoing audio broadcasts.
